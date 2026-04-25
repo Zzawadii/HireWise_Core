@@ -1,6 +1,4 @@
-<<<<<<< HEAD
-# HireWise_Core
-=======
+
 # HireWise - AI-Powered Recruitment Platform
 
 > **Umurava AI Hackathon Submission** - An innovation challenge to build AI Products for Human Resources Industry
@@ -327,4 +325,4 @@ For questions about this submission, please contact the team via the hackathon p
 
 **Built for Umurava AI Hackathon with ❤️**  
 **Tech Stack:** Next.js 16 + TypeScript + Redux Toolkit + Tailwind CSS + Gemini API
->>>>>>> fa894f0 (Initial frontend setup)
+
