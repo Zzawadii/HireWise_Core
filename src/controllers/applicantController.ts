@@ -8,17 +8,22 @@ export const addApplicant = async (req: Request, res: Response) => {
     const applicant = new Applicant({ ...req.body, jobId: req.params.jobId });
     await applicant.save();
     res.status(201).json(applicant);
-  } catch (err) {
-    res.status(500).json({ message: 'Server error' });
+  } catch (err: any) {
+    console.error('addApplicant error:', err);
+    if (err.code === 11000) {
+      return res.status(409).json({ message: 'Applicant with this email already exists for this job' });
+    }
+    res.status(500).json({ message: 'Failed to add applicant', error: err.message });
   }
 };
 
 export const getApplicants = async (req: Request, res: Response) => {
   try {
     const applicants = await Applicant.find({ jobId: req.params.jobId });
-    res.json(applicants);
-  } catch (err) {
-    res.status(500).json({ message: 'Server error' });
+    res.json({ total: applicants.length, data: applicants });
+  } catch (err: any) {
+    console.error('getApplicants error:', err);
+    res.status(500).json({ message: 'Failed to fetch applicants', error: err.message });
   }
 };
 
@@ -28,11 +33,10 @@ export const screenJobApplicants = async (req: Request, res: Response) => {
     if (!job) return res.status(404).json({ message: 'Job not found' });
 
     const applicants = await Applicant.find({ jobId: req.params.jobId });
-    if (applicants.length === 0) return res.status(400).json({ message: 'No applicants found' });
+    if (applicants.length === 0) return res.status(400).json({ message: 'No applicants found for this job' });
 
     const results = await screenApplicants(job, applicants);
 
-    // Update each applicant with AI results
     for (const result of results) {
       await Applicant.findOneAndUpdate(
         { jobId: req.params.jobId, name: result.name },
@@ -47,21 +51,34 @@ export const screenJobApplicants = async (req: Request, res: Response) => {
       );
     }
 
-    res.json({ message: 'Screening complete', results });
-  } catch (err) {
-    console.error('Screening error:', err);
-    res.status(500).json({ message: 'Server error', error: String(err) });
+    res.json({ message: 'Screening complete', total: results.length, results });
+  } catch (err: any) {
+    console.error('screenJobApplicants error:', err);
+    res.status(500).json({ message: 'AI screening failed', error: err.message });
   }
 };
 
 export const getShortlist = async (req: Request, res: Response) => {
   try {
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 20;
+    const skip = (page - 1) * limit;
+
+    const total = await Applicant.countDocuments({ jobId: req.params.jobId, status: 'screened' });
     const shortlist = await Applicant.find({ 
       jobId: req.params.jobId, 
       status: 'screened' 
-    }).sort({ score: -1 }).limit(20);
-    res.json(shortlist);
-  } catch (err) {
-    res.status(500).json({ message: 'Server error' });
+    }).sort({ score: -1 }).skip(skip).limit(limit);
+
+    res.json({
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+      data: shortlist
+    });
+  } catch (err: any) {
+    console.error('getShortlist error:', err);
+    res.status(500).json({ message: 'Failed to fetch shortlist', error: err.message });
   }
 };
